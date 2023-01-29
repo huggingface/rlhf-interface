@@ -92,19 +92,18 @@ with demo:
         state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1, "response_2": response_2})
         state["past_user_inputs"].append(txt)
 
-        if state["cnt"] == TOTAL_CNT:
-            # Write the HIT data to our local dataset because the worker has
-            # submitted everything now.
-            with open(DATA_FILE, "a") as jsonlfile:
-                json_data_with_assignment_id =\
-                    [json.dumps(dict({"assignmentId": state["assignmentId"]}, **datum)) for datum in state["data"]]
-                jsonlfile.write("\n".join(json_data_with_assignment_id) + "\n")
-
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
         return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=[response_1, response_2], interactive=True, value=response_1), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
+        if state["cnt"] == TOTAL_CNT:
+            # Write the HIT data to our local dataset because the worker has
+            # submitted everything now.
+            with open(DATA_FILE, "a") as jsonlfile:
+                json_data_with_assignment_id =\
+                    [json.dumps(dict({"assignmentId": state["assignmentId"]. "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
+                jsonlfile.write("\n".join(json_data_with_assignment_id) + "\n")
         toggle_example_submit = gr.update(visible=not done)
         state["generated_responses"].append(selected_response)
         state["data"][-1]["selected_response"] = selected_response
