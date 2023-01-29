@@ -97,6 +97,8 @@ with demo:
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
+        state["generated_responses"].append(selected_response)
+        state["data"][-1]["selected_response"] = selected_response
         if state["cnt"] == TOTAL_CNT:
             # Write the HIT data to our local dataset because the worker has
             # submitted everything now.
@@ -105,8 +107,6 @@ with demo:
                     [json.dumps(dict({"assignmentId": state["assignmentId"], "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
                 jsonlfile.write("\n".join(json_data_with_assignment_id) + "\n")
         toggle_example_submit = gr.update(visible=not done)
-        state["generated_responses"].append(selected_response)
-        state["data"][-1]["selected_response"] = selected_response
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"])])
         query = parse_qs(dummy[1:])
         if "assignmentId" in query and query["assignmentId"][0] != "ASSIGNMENT_ID_NOT_AVAILABLE":
