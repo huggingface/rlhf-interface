@@ -26,7 +26,7 @@ repo = Repository(
     local_dir="data", clone_from=DATASET_REPO_URL, use_auth_token=HF_TOKEN
 )
 
-TOTAL_CNT = 4 # How many user inputs per HIT
+TOTAL_CNT = 3 # How many user inputs per HIT
 
 # This function pushes the HIT data written in data.jsonl to our Hugging Face
 # dataset every minute. Adjust the frequency to suit your needs.
