@@ -102,7 +102,7 @@ with demo:
             # submitted everything now.
             with open(DATA_FILE, "a") as jsonlfile:
                 json_data_with_assignment_id =\
-                    [json.dumps(dict({"assignmentId": state["assignmentId"]. "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
+                    [json.dumps(dict({"assignmentId": state["assignmentId"], "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
                 jsonlfile.write("\n".join(json_data_with_assignment_id) + "\n")
         toggle_example_submit = gr.update(visible=not done)
         state["generated_responses"].append(selected_response)
