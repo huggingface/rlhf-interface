@@ -58,7 +58,7 @@ with demo:
 
     # We keep track of state as a JSON
     state_dict = {
-        "conversation_id": uuid.uuid4(),
+        "conversation_id": str(uuid.uuid4()),
         "assignmentId": "",
         "cnt": 0, "data": [],
         "past_user_inputs": [],
