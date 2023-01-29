@@ -1,0 +1,6 @@
+torch==1.12.0
+transformers==4.20.1
+gradio==3.0.26
+boto3==1.24.32
+huggingface_hub==0.8.1
+python-dotenv==0.20.0

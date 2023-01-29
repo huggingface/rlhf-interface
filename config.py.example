@@ -1,0 +1,6 @@
+# Fill in the information and rename this file config.py
+# You can obtain the key and secret in the AWS Identity
+# and Access Management (IAM) panel.
+
+MTURK_KEY = ''
+MTURK_SECRET = '
