@@ -3,4 +3,4 @@
 # and Access Management (IAM) panel.
 
 MTURK_KEY = ''
-MTURK_SECRET = '
+MTURK_SECRET = ''
