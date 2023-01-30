@@ -98,6 +98,13 @@ chatbot_4 = ConversationChain(
     memory=ConversationBufferMemory(ai_prefix="Assistant"),
 )
 
+model_id2model = {
+    "google/flan-t5-xl": chatbot_1,
+    "bigscience/bloom": chatbot_2,
+    "bigscience/T0_3B": chatbot_3,
+    "EleutherAI/gpt-j-6B": chatbot_4
+}
+
 demo = gr.Blocks()
 
 with demo:
@@ -130,17 +137,17 @@ with demo:
         response_3 = chatbot_3.predict(input=txt)
         response_4 = chatbot_4.predict(input=txt)
 
-        response2model = {}
-        response2model[response_1] = chatbot_1.llm.repo_id
-        response2model[response_2] = chatbot_2.llm.repo_id
-        response2model[response_3] = chatbot_3.llm.repo_id
-        response2model[response_4] = chatbot_4.llm.repo_id
+        response2model_id = {}
+        response2model_id[response_1] = chatbot_1.llm.repo_id
+        response2model_id[response_2] = chatbot_2.llm.repo_id
+        response2model_id[response_3] = chatbot_3.llm.repo_id
+        response2model_id[response_4] = chatbot_4.llm.repo_id
 
         state["cnt"] += 1
 
         new_state_md = f"Inputs remaining in HIT: {state['cnt']}/{TOTAL_CNT}"
 
-        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response_3": response_3, "response_4": response_4,"response2model": response2model})
+        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response_3": response_3, "response_4": response_4,"response2model_id": response2model_id})
         state["past_user_inputs"].append(txt)
 
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
@@ -150,7 +157,7 @@ with demo:
         done = state["cnt"] == TOTAL_CNT
         state["generated_responses"].append(selected_response)
         state["data"][-1]["selected_response"] = selected_response
-        state["data"][-1]["selected_model"] = state["data"][-1]["response2model"][selected_response]
+        state["data"][-1]["selected_model"] = state["data"][-1]["response2model_id"][selected_response]
         if state["cnt"] == TOTAL_CNT:
             # Write the HIT data to our local dataset because the worker has
             # submitted everything now.
@@ -172,6 +179,21 @@ with demo:
         else:
             toggle_final_submit_preview = gr.update(visible=done)
             toggle_final_submit = gr.update(visible=False)
+
+        if done:
+            # Wipe the memory completely because we will be starting a new hit soon.
+            chatbot_1.memory = ConversationBufferMemory(ai_prefix="Assistant")
+            chatbot_2.memory = ConversationBufferMemory(ai_prefix="Assistant")
+            chatbot_3.memory = ConversationBufferMemory(ai_prefix="Assistant")
+            chatbot_4.memory = ConversationBufferMemory(ai_prefix="Assistant")
+        else:
+            # Sync all of the model's memories with the conversation path that
+            # was actually taken.
+            chatbot_1.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
+            chatbot_2.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
+            chatbot_3.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
+            chatbot_4.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
+
         text_input = gr.update(visible=False) if done else gr.update(visible=True)
         return gr.update(visible=False), gr.update(visible=True), text_input, gr.update(visible=False), state, gr.update(value=past_conversation_string), toggle_example_submit, toggle_final_submit, toggle_final_submit_preview,
 
