@@ -1,20 +1,21 @@
 # Basic example for doing model-in-the-loop dynamic adversarial data collection
 # using Gradio Blocks.
-import os
-import uuid
-from urllib.parse import parse_qs
-import gradio as gr
-from huggingface_hub import Repository
-from dotenv import load_dotenv
-from pathlib import Path
 import json
-from utils import force_git_push
+import os
 import threading
+import uuid
+from pathlib import Path
+from urllib.parse import parse_qs
 
-from langchain.prompts import load_prompt
-from langchain import LLMChain, PromptTemplate
-from langchain.llms import HuggingFaceHub
+import gradio as gr
+from dotenv import load_dotenv
+from huggingface_hub import Repository
+from langchain import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain.llms import HuggingFaceHub
+from langchain.prompts import load_prompt
+
+from utils import force_git_push
 
 # These variables are for storing the mturk HITs in a Hugging Face dataset.
 if Path(".env").is_file():
@@ -22,10 +23,8 @@ if Path(".env").is_file():
 DATASET_REPO_URL = os.getenv("DATASET_REPO_URL")
 FORCE_PUSH = os.getenv("FORCE_PUSH")
 HF_TOKEN = os.getenv("HF_TOKEN")
-
 PROMPT_TEMPLATES = Path("prompt_templates")
-
-# Set env variable for langchain 
+# Set env variable for langchain to communicate with Hugging Face Hub
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = HF_TOKEN
 
 DATA_FILENAME = "data.jsonl"
@@ -59,26 +58,45 @@ asynchronous_push(f_stop)
 # Now let's run the app!
 prompt = load_prompt(PROMPT_TEMPLATES / "openai_chatgpt.json")
 
-chatbot_1 = LLMChain(
+chatbot_1 = ConversationChain(
     llm=HuggingFaceHub(
         repo_id="google/flan-t5-xl",
-        model_kwargs={"temperature": 1, "do_sample":True, "top_p":"0.8"}
+        model_kwargs={"temperature": 1}
     ),
     prompt=prompt,
     verbose=False,
     memory=ConversationBufferMemory(ai_prefix="Assistant"),
 )
 
-chatbot_2 = LLMChain(
+chatbot_2 = ConversationChain(
     llm=HuggingFaceHub(
         repo_id="bigscience/bloom",
-        model_kwargs={"temperature": 1, "do_sample":True, "top_p":"0.8"}
+        model_kwargs={"temperature": 0.7}
     ),
     prompt=prompt,
     verbose=False,
     memory=ConversationBufferMemory(ai_prefix="Assistant"),
 )
 
+chatbot_3 = ConversationChain(
+    llm=HuggingFaceHub(
+        repo_id="bigscience/T0_3B",
+        model_kwargs={"temperature": 1}
+    ),
+    prompt=prompt,
+    verbose=False,
+    memory=ConversationBufferMemory(ai_prefix="Assistant"),
+)
+
+chatbot_4 = ConversationChain(
+    llm=HuggingFaceHub(
+        repo_id="EleutherAI/gpt-j-6B",
+        model_kwargs={"temperature": 1}
+    ),
+    prompt=prompt,
+    verbose=False,
+    memory=ConversationBufferMemory(ai_prefix="Assistant"),
+)
 
 demo = gr.Blocks()
 
@@ -94,6 +112,8 @@ with demo:
         "generated_responses": [],
         "response_1": "",
         "response_2": "",
+        "response_3": "",
+        "response_4": "",
         }
     state = gr.JSON(state_dict, visible=False)
 
@@ -104,21 +124,27 @@ with demo:
 
     # Generate model prediction
     def _predict(txt, state):
-        response2model = {}
+        # TODO: parallelize this!
         response_1 = chatbot_1.predict(input=txt)
         response_2 = chatbot_2.predict(input=txt)
+        response_3 = chatbot_3.predict(input=txt)
+        response_4 = chatbot_4.predict(input=txt)
+
+        response2model = {}
         response2model[response_1] = chatbot_1.llm.repo_id
         response2model[response_2] = chatbot_2.llm.repo_id
+        response2model[response_3] = chatbot_3.llm.repo_id
+        response2model[response_4] = chatbot_4.llm.repo_id
 
         state["cnt"] += 1
 
         new_state_md = f"Inputs remaining in HIT: {state['cnt']}/{TOTAL_CNT}"
 
-        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response2model": response2model})
+        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response_3": response_3, "response_4": response_4,"response2model": response2model})
         state["past_user_inputs"].append(txt)
 
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
-        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=[response_1, response_2], interactive=True, value=response_1), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
+        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=[response_1, response_2, response_3, response_4], interactive=True, value=response_1), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
