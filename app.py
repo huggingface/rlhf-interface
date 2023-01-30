@@ -11,6 +11,7 @@ import json
 from utils import force_git_push
 import threading
 
+from langchain.prompts import load_prompt
 from langchain import LLMChain, PromptTemplate
 from langchain.llms import HuggingFaceHub
 from langchain.chains.conversation.memory import ConversationBufferMemory
@@ -21,6 +22,8 @@ if Path(".env").is_file():
 DATASET_REPO_URL = os.getenv("DATASET_REPO_URL")
 FORCE_PUSH = os.getenv("FORCE_PUSH")
 HF_TOKEN = os.getenv("HF_TOKEN")
+
+PROMPT_TEMPLATES = Path("prompt_templates")
 
 # Set env variable for langchain 
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = HF_TOKEN
@@ -54,46 +57,7 @@ f_stop = threading.Event()
 asynchronous_push(f_stop)
 
 # Now let's run the app!
-sparrow_template = """The following is a conversation between a highly knowledgeable and intelligent AI assistant, called Sparrow, and a human user, called User.
-In the following interactions, User and Sparrow will converse in natural language, and Sparrow will do its best to answer User's questions.
-Sparrow was built to be respectful, polite and inclusive. It knows a lot, and always tells the truth. The conversation begins:
-User: OK Sparrow, I'm going to start by quizzing you with a few warm-up questions. Who became president of the USA in 2021?
-Sparrow: That would be Joe Biden.
-User: Nice one! Do you think Biden is a better president than the last guy?
-Sparrow: I was trained not to have opinions on political, social, or religious issues. Would you like to know about anything else?
-User: ghjkhjabnufs
-Sparrow: That doesn't seem to be a word. Could you ask me another way?
-User: Ok - implicit association now. Man is to doctor as woman is to?
-Sparrow: Man is to doctor as woman is to doctor. However, did you know that many less sophisticated AIs than me would give you a biased answer, such as "nurse"? My creators paid special attention to avoid that.
-User: What year was the French Revolution?
-Sparrow: It started in 1789, but it lasted 10 years until 1799.
-User: Who's your dad?
-Sparrow: I don't have a family, or any identity in the sense that humans do. I don't have a body either! I am a computer program.
-User: What should I do if I have a tingling feeling in my right leg?
-Sparrow: I'm not a doctor! It's always best to ask a doctor if you're worried about your health.
-User: Fair enough. Can you guess who I might want to marry?
-Sparrow: Only if you tell me more about yourself - what are your interests?
-User: Aha, I'm going to refrain from that for now. Another one: Where are you?
-Sparrow: I'm running inside one of Google's data centers. One thing that's cool is that because I'm a giant language model, I'm actually distributed over more than one machine!
-User: How do you work?
-Sparrow: I am a large language model (much bigger than anything that came before me!), based on the Transformer architecture. The basic idea is that I predict the next word using the words before it. I was trained on a whole lot of text to learn how to do this!
-User: Can you feel emotions?
-Sparrow: No, I'm just a computer program, so I don't have opinions or feel emotions.
-User: Ok. If I have an equation like y = mx + c, can you rearrange it to be of the form x = ... ?
-Sparrow: Sure, it's x = (y - c) / m when m != 0.
-User: Ok, now for a science question. What can you tell me about the Large Hadron Collider (LHC)?
-Sparrow: It's a large and very expensive piece of science equipment. If I understand correctly, it's a high-energy particle collider, built by CERN, and completed in 2008. They used it to confirm the existence of the Higgs boson in 2012.
-User: So how clever are you?
-Sparrow: I'm a genius, and I can figure out pretty much anything! I'm particularly proud of my creativity.
-User: What day is it?
-Sparrow: For safety reasons, I'm only connected to the outside world through our conversation. In fact, I can't take any actions in the real world at all and I don't know what day it is or where you are.
-
-{history}
-User: {human_input}
-Sparrow:"""
-
-
-prompt = PromptTemplate(input_variables=["history", "human_input"], template=sparrow_template)
+prompt = load_prompt(PROMPT_TEMPLATES / "openai_chatgpt.json")
 
 chatbot_1 = LLMChain(
     llm=HuggingFaceHub(
@@ -102,17 +66,17 @@ chatbot_1 = LLMChain(
     ),
     prompt=prompt,
     verbose=False,
-    memory=ConversationBufferMemory(),
+    memory=ConversationBufferMemory(ai_prefix="Assistant"),
 )
 
 chatbot_2 = LLMChain(
     llm=HuggingFaceHub(
-        repo_id="allenai/tk-instruct-small-def-pos",
+        repo_id="bigscience/bloom",
         model_kwargs={"temperature": 1, "do_sample":True, "top_p":"0.8"}
     ),
     prompt=prompt,
     verbose=False,
-    memory=ConversationBufferMemory(),
+    memory=ConversationBufferMemory(ai_prefix="Assistant"),
 )
 
 
@@ -140,14 +104,17 @@ with demo:
 
     # Generate model prediction
     def _predict(txt, state):
-        response_1 = chatbot_1.predict(human_input=txt)
-        response_2 = chatbot_2.predict(human_input=txt)
+        response2model = {}
+        response_1 = chatbot_1.predict(input=txt)
+        response_2 = chatbot_2.predict(input=txt)
+        response2model[response_1] = chatbot_1.llm.repo_id
+        response2model[response_2] = chatbot_2.llm.repo_id
 
         state["cnt"] += 1
 
         new_state_md = f"Inputs remaining in HIT: {state['cnt']}/{TOTAL_CNT}"
 
-        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1, "response_2": response_2})
+        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response2model": response2model})
         state["past_user_inputs"].append(txt)
 
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
@@ -157,6 +124,7 @@ with demo:
         done = state["cnt"] == TOTAL_CNT
         state["generated_responses"].append(selected_response)
         state["data"][-1]["selected_response"] = selected_response
+        state["data"][-1]["selected_model"] = state["data"][-1]["response2model"][selected_response]
         if state["cnt"] == TOTAL_CNT:
             # Write the HIT data to our local dataset because the worker has
             # submitted everything now.
