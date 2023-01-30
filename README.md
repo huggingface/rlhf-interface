@@ -36,7 +36,7 @@ To launch the Space locally, run:
 python app.py
 ```
 
-The app will then be available at http://127.0.0.1:7860
+The app will then be available at a local address, such as http://127.0.0.1:7860
 
 *Running Data Collection*
 
