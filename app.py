@@ -1,11 +1,11 @@
 # Basic example for doing model-in-the-loop dynamic adversarial data collection
 # using Gradio Blocks.
-import concurrent.futures
 import json
 import os
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List
 from urllib.parse import parse_qs
@@ -28,9 +28,9 @@ def generate_respone(chatbot: ConversationChain, input: str) -> str:
 def generate_responses(chatbots: List[ConversationChain], inputs: List[str]) -> List[str]:
     """Generates parallel responses for a list of `langchain` chatbots."""
     results = []
-    executor =  concurrent.futures.ThreadPoolExecutor(max_workers=100)
-    for result in executor.map(generate_respone, chatbots, inputs):
-        results.append(result)
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        for result in executor.map(generate_respone, chatbots, inputs):
+            results.append(result)
     return results
 
 
@@ -116,11 +116,9 @@ with demo:
 
     # Generate model prediction
     def _predict(txt, state):
-        # TODO: parallelize this!
         start = time.time()
         responses = generate_responses(chatbots, [txt] * len(chatbots))
-        print(f"Time taken (threading): {time.time() - start} seconds")
-
+        print(f"Time taken to generate {len(chatbots)} responses : {time.time() - start:.2f} seconds")
 
         response2model_id = {}
         for chatbot, response in zip(chatbots, responses):
