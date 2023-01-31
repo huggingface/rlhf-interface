@@ -25,6 +25,7 @@ def generate_respone(chatbot: ConversationChain, input: str) -> str:
     """Generates a response for a `langchain` chatbot."""
     return chatbot.predict(input=input)
 
+
 def generate_responses(chatbots: List[ConversationChain], inputs: List[str]) -> List[str]:
     """Generates parallel responses for a list of `langchain` chatbots."""
     results = []
@@ -79,16 +80,18 @@ MODEL_IDS = ["google/flan-t5-xl", "bigscience/T0_3B", "EleutherAI/gpt-j-6B"]
 chatbots = []
 
 for model_id in MODEL_IDS:
-    chatbots.append(ConversationChain(
-    llm=HuggingFaceHub(
-        repo_id=model_id,
-        model_kwargs={"temperature": 1},
-        huggingfacehub_api_token=HF_TOKEN,
-    ),
-    prompt=prompt,
-    verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant"),
-))
+    chatbots.append(
+        ConversationChain(
+            llm=HuggingFaceHub(
+                repo_id=model_id,
+                model_kwargs={"temperature": 1},
+                huggingfacehub_api_token=HF_TOKEN,
+            ),
+            prompt=prompt,
+            verbose=False,
+            memory=ConversationBufferMemory(ai_prefix="Assistant"),
+        )
+    )
 
 
 model_id2model = {chatbot.llm.repo_id: chatbot for chatbot in chatbots}
@@ -106,7 +109,7 @@ with demo:
         "data": [],
         "past_user_inputs": [],
         "generated_responses": [],
-        }
+    }
     for idx in range(len(chatbots)):
         state_dict[f"response_{idx+1}"] = ""
     state = gr.JSON(state_dict, visible=False)
@@ -134,13 +137,29 @@ with demo:
         for idx, response in enumerate(responses):
             metadata[f"response_{idx + 1}"] = response
 
-        metadata["response2model_id"] =  response2model_id
+        metadata["response2model_id"] = response2model_id
 
         state["data"].append(metadata)
         state["past_user_inputs"].append(txt)
 
-        past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
-        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=responses, interactive=True, value=responses[0]), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
+        past_conversation_string = "<br />".join(
+            [
+                "<br />".join(["😃: " + user_input, "🤖: " + model_response])
+                for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])
+            ]
+        )
+        return (
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True, choices=responses, interactive=True, value=responses[0]),
+            gr.update(value=past_conversation_string),
+            state,
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            new_state_md,
+            dummy,
+        )
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
@@ -214,7 +233,9 @@ with demo:
     with gr.Column(visible=False) as final_submit:
         submit_hit_button = gr.Button("Submit HIT")
     with gr.Column(visible=False) as final_submit_preview:
-        submit_hit_button_preview = gr.Button("Submit Work (preview mode; no MTurk HIT credit, but your examples will still be stored)")
+        submit_hit_button_preview = gr.Button(
+            "Submit Work (preview mode; no MTurk HIT credit, but your examples will still be stored)"
+        )
 
     # Button event handlers
     get_window_location_search_js = """
