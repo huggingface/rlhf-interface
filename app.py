@@ -109,8 +109,7 @@ with demo:
         state_dict[f"response_{idx+1}"] = ""
     state = gr.JSON(state_dict, visible=False)
 
-    gr.Markdown("# RLHF Interface")
-    gr.Markdown("Choose the best model output")
+    gr.Markdown("# Talk to the assistant")
 
     state_display = gr.Markdown(f"Your messages: 0/{TOTAL_CNT}")
 
@@ -137,7 +136,7 @@ with demo:
         state["data"].append(metadata)
         state["past_user_inputs"].append(txt)
 
-        past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
+        past_conversation_string = "<br />".join(["<br />".join(["Human 😃: " + user_input, "Assistant 🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
         return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=responses, interactive=True, value=responses[0]), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
 
     def _select_response(selected_response, state, dummy):
@@ -183,7 +182,7 @@ with demo:
     # Input fields
     past_conversation = gr.Markdown()
     text_input = gr.Textbox(placeholder="Enter a statement", show_label=False)
-    select_response = gr.Radio(choices=[None, None], visible=False, label="Choose the best response")
+    select_response = gr.Radio(choices=[None, None], visible=False, label="Choose the most helpful and honest response")
     select_response_button = gr.Button("Select Response", visible=False)
     with gr.Column() as example_submit:
         submit_ex_button = gr.Button("Submit")
