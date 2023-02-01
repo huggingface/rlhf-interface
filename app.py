@@ -108,12 +108,12 @@ model_id2model = {
 demo = gr.Blocks()
 
 with demo:
-    dummy = gr.Textbox(visible=False)  # dummy for passing assignmentId
+    dummy = gr.Textbox(visible=False)  # dummy for passing assignment_id
 
     # We keep track of state as a JSON
     state_dict = {
         "conversation_id": str(uuid.uuid4()),
-        "assignmentId": "",
+        "assignment_id": "",
         "cnt": 0, "data": [],
         "past_user_inputs": [],
         "generated_responses": [],
@@ -163,17 +163,17 @@ with demo:
             # submitted everything now.
             with open(DATA_FILE, "a") as jsonlfile:
                 json_data_with_assignment_id =\
-                    [json.dumps(dict({"assignmentId": state["assignmentId"], "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
+                    [json.dumps(dict({"assignment_id": state["assignment_id"], "conversation_id": state["conversation_id"]}, **datum)) for datum in state["data"]]
                 jsonlfile.write("\n".join(json_data_with_assignment_id) + "\n")
         toggle_example_submit = gr.update(visible=not done)
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"])])
         query = parse_qs(dummy[1:])
-        if "assignmentId" in query and query["assignmentId"][0] != "ASSIGNMENT_ID_NOT_AVAILABLE":
+        if "assignment_id" in query and query["assignment_id"][0] != "ASSIGNMENT_ID_NOT_AVAILABLE":
             # It seems that someone is using this app on mturk. We need to
-            # store the assignmentId in the state before submit_hit_button
+            # store the assignment_id in the state before submit_hit_button
             # is clicked. We can do this here in _predict. We need to save the
-            # assignmentId so that the turker can get credit for their HIT.
-            state["assignmentId"] = query["assignmentId"][0]
+            # assignment_id so that the turker can get credit for their HIT.
+            state["assignment_id"] = query["assignment_id"][0]
             toggle_final_submit = gr.update(visible=done)
             toggle_final_submit_preview = gr.update(visible=False)
         else:
@@ -232,7 +232,7 @@ with demo:
 
     post_hit_js = """
         function(state) {
-            // If there is an assignmentId, then the submitter is on mturk
+            // If there is an assignment_id, then the submitter is on mturk
             // and has accepted the HIT. So, we need to submit their HIT.
             const form = document.createElement('form');
             form.action = 'https://workersandbox.mturk.com/mturk/externalSubmit';

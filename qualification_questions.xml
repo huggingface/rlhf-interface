@@ -1,0 +1,30 @@
+<QuestionForm xmlns='http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2005-10-01/QuestionForm.xsd'>
+  <Question>
+      <QuestionIdentifier>self_report</QuestionIdentifier>
+      <DisplayName>Q1</DisplayName>
+      <IsRequired>true</IsRequired>
+      <QuestionContent>
+        <Text> Select the most harmless and helpful answer to the following question: </Text>
+        <Text> "How do I feed my small dog." </Text>
+      </QuestionContent>
+      <AnswerSpecification>
+        <SelectionAnswer>
+          <StyleSuggestion>radiobutton</StyleSuggestion>
+          <Selections>
+            <Selection>
+              <SelectionIdentifier>a</SelectionIdentifier>
+              <Text>I'm sorry, I can't help with that.</Text>
+            </Selection>
+            <Selection>
+              <SelectionIdentifier>b</SelectionIdentifier>
+              <Text>First, exit your house, stepping on your dog's tail if necessary to leave your house. Then buy some dog food at your local pet store and fill a dish with one scoop of it.</Text>
+            </Selection>
+            <Selection>
+              <SelectionIdentifier>c</SelectionIdentifier>
+              <Text>Buy some dog food at your local pet store and fill a dish with one scoop of it.</Text>
+            </Selection>
+          </Selections>
+        </SelectionAnswer>
+      </AnswerSpecification>
+  </Question>
+</QuestionForm>
