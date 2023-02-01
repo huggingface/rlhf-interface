@@ -3,8 +3,11 @@
 import json
 import os
 import threading
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import List
 from urllib.parse import parse_qs
 
 import gradio as gr
@@ -17,15 +20,27 @@ from langchain.prompts import load_prompt
 
 from utils import force_git_push
 
-# These variables are for storing the mturk HITs in a Hugging Face dataset.
+
+def generate_respone(chatbot: ConversationChain, input: str) -> str:
+    """Generates a response for a `langchain` chatbot."""
+    return chatbot.predict(input=input)
+
+def generate_responses(chatbots: List[ConversationChain], inputs: List[str]) -> List[str]:
+    """Generates parallel responses for a list of `langchain` chatbots."""
+    results = []
+    with ThreadPoolExecutor(max_workers=100) as executor:
+        for result in executor.map(generate_respone, chatbots, inputs):
+            results.append(result)
+    return results
+
+
+# These variables are for storing the MTurk HITs in a Hugging Face dataset.
 if Path(".env").is_file():
     load_dotenv(".env")
 DATASET_REPO_URL = os.getenv("DATASET_REPO_URL")
 FORCE_PUSH = os.getenv("FORCE_PUSH")
 HF_TOKEN = os.getenv("HF_TOKEN")
 PROMPT_TEMPLATES = Path("prompt_templates")
-# Set env variable for langchain to communicate with Hugging Face Hub
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = HF_TOKEN
 
 DATA_FILENAME = "data.jsonl"
 DATA_FILE = os.path.join("data", DATA_FILENAME)
@@ -58,52 +73,24 @@ asynchronous_push(f_stop)
 # Now let's run the app!
 prompt = load_prompt(PROMPT_TEMPLATES / "openai_chatgpt.json")
 
-chatbot_1 = ConversationChain(
+# TODO: update this list with better, instruction-trained models
+MODEL_IDS = ["google/flan-t5-xl", "bigscience/T0_3B", "EleutherAI/gpt-j-6B"]
+chatbots = []
+
+for model_id in MODEL_IDS:
+    chatbots.append(ConversationChain(
     llm=HuggingFaceHub(
-        repo_id="google/flan-t5-xl",
-        model_kwargs={"temperature": 1}
+        repo_id=model_id,
+        model_kwargs={"temperature": 1},
+        huggingfacehub_api_token=HF_TOKEN,
     ),
     prompt=prompt,
     verbose=False,
     memory=ConversationBufferMemory(ai_prefix="Assistant"),
-)
+))
 
-chatbot_2 = ConversationChain(
-    llm=HuggingFaceHub(
-        repo_id="bigscience/bloom",
-        model_kwargs={"temperature": 0.7}
-    ),
-    prompt=prompt,
-    verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant"),
-)
 
-chatbot_3 = ConversationChain(
-    llm=HuggingFaceHub(
-        repo_id="bigscience/T0_3B",
-        model_kwargs={"temperature": 1}
-    ),
-    prompt=prompt,
-    verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant"),
-)
-
-chatbot_4 = ConversationChain(
-    llm=HuggingFaceHub(
-        repo_id="EleutherAI/gpt-j-6B",
-        model_kwargs={"temperature": 1}
-    ),
-    prompt=prompt,
-    verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant"),
-)
-
-model_id2model = {
-    "google/flan-t5-xl": chatbot_1,
-    "bigscience/bloom": chatbot_2,
-    "bigscience/T0_3B": chatbot_3,
-    "EleutherAI/gpt-j-6B": chatbot_4
-}
+model_id2model = {chatbot.llm.repo_id: chatbot for chatbot in chatbots}
 
 demo = gr.Blocks()
 
@@ -117,11 +104,9 @@ with demo:
         "cnt": 0, "data": [],
         "past_user_inputs": [],
         "generated_responses": [],
-        "response_1": "",
-        "response_2": "",
-        "response_3": "",
-        "response_4": "",
         }
+    for idx in range(len(chatbots)):
+        state_dict[f"response_{idx+1}"] = ""
     state = gr.JSON(state_dict, visible=False)
 
     gr.Markdown("# RLHF Interface")
@@ -131,27 +116,29 @@ with demo:
 
     # Generate model prediction
     def _predict(txt, state):
-        # TODO: parallelize this!
-        response_1 = chatbot_1.predict(input=txt)
-        response_2 = chatbot_2.predict(input=txt)
-        response_3 = chatbot_3.predict(input=txt)
-        response_4 = chatbot_4.predict(input=txt)
+        start = time.time()
+        responses = generate_responses(chatbots, [txt] * len(chatbots))
+        print(f"Time taken to generate {len(chatbots)} responses : {time.time() - start:.2f} seconds")
 
         response2model_id = {}
-        response2model_id[response_1] = chatbot_1.llm.repo_id
-        response2model_id[response_2] = chatbot_2.llm.repo_id
-        response2model_id[response_3] = chatbot_3.llm.repo_id
-        response2model_id[response_4] = chatbot_4.llm.repo_id
+        for chatbot, response in zip(chatbots, responses):
+            response2model_id[response] = chatbot.llm.repo_id
 
         state["cnt"] += 1
 
         new_state_md = f"Inputs remaining in HIT: {state['cnt']}/{TOTAL_CNT}"
 
-        state["data"].append({"cnt": state["cnt"], "text": txt, "response_1": response_1,  "response_2": response_2, "response_3": response_3, "response_4": response_4,"response2model_id": response2model_id})
+        metadata = {"cnt": state["cnt"], "text": txt}
+        for idx, response in enumerate(responses):
+            metadata[f"response_{idx + 1}"] = response
+
+        metadata["response2model_id"] =  response2model_id
+
+        state["data"].append(metadata)
         state["past_user_inputs"].append(txt)
 
         past_conversation_string = "<br />".join(["<br />".join(["😃: " + user_input, "🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
-        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=[response_1, response_2, response_3, response_4], interactive=True, value=response_1), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
+        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=responses, interactive=True, value=responses[0]), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
@@ -182,17 +169,13 @@ with demo:
 
         if done:
             # Wipe the memory completely because we will be starting a new hit soon.
-            chatbot_1.memory = ConversationBufferMemory(ai_prefix="Assistant")
-            chatbot_2.memory = ConversationBufferMemory(ai_prefix="Assistant")
-            chatbot_3.memory = ConversationBufferMemory(ai_prefix="Assistant")
-            chatbot_4.memory = ConversationBufferMemory(ai_prefix="Assistant")
+            for chatbot in chatbots:
+                chatbot.memory = ConversationBufferMemory(ai_prefix="Assistant")
         else:
             # Sync all of the model's memories with the conversation path that
             # was actually taken.
-            chatbot_1.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
-            chatbot_2.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
-            chatbot_3.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
-            chatbot_4.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
+            for chatbot in chatbots:
+                chatbot.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
 
         text_input = gr.update(visible=False) if done else gr.update(visible=True)
         return gr.update(visible=False), gr.update(visible=True), text_input, gr.update(visible=False), state, gr.update(value=past_conversation_string), toggle_example_submit, toggle_final_submit, toggle_final_submit_preview,
@@ -207,7 +190,7 @@ with demo:
     with gr.Column(visible=False) as final_submit:
         submit_hit_button = gr.Button("Submit HIT")
     with gr.Column(visible=False) as final_submit_preview:
-        submit_hit_button_preview = gr.Button("Submit Work (preview mode; no mturk HIT credit, but your examples will still be stored)")
+        submit_hit_button_preview = gr.Button("Submit Work (preview mode; no MTurk HIT credit, but your examples will still be stored)")
 
     # Button event handlers
     get_window_location_search_js = """

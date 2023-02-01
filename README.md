@@ -9,11 +9,19 @@ app_file: app.py
 pinned: false
 ---
 
-A basic example of an RLHF interface with a Gradio app.
+An RLHF interface for data collection with [Amazon Mechanical Turk](https://www.mturk.com) and Gradio.
 
-**Instructions for someone to use for their own project:**
+## Instructions for someone to use for their own project
 
-*Setting up the Space*
+### Install dependencies
+
+First, create a Python virtual environment and install the project's dependencies as follows:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### Setting up the Space
 
 1. Clone this repo and deploy it on your own Hugging Face space.
 2. Add the following secrets to your space:
@@ -38,7 +46,7 @@ python app.py
 
 The app will then be available at a local address, such as http://127.0.0.1:7860
 
-*Running Data Collection*
+### Running data collection*
 
 1. On your local repo that you pulled, create a copy of `config.py.example`,
    just called `config.py`. Now, put keys from your AWS account in `config.py`.
@@ -47,11 +55,12 @@ The app will then be available at a local address, such as http://127.0.0.1:7860
    create an mturk requestor account associated with your AWS account.
 2. Run `python collect.py` locally.
 
-*Profit*
+### Profit
 Now, you should be watching hits come into your Hugging Face dataset
 automatically!
 
-*Tips and Tricks*
+### Tips and tricks
+
 - Use caution while doing local development of your space and
 simultaneously running it on mturk. Consider setting `FORCE_PUSH` to "no" in
 your local `.env` file.
