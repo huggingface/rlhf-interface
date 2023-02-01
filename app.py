@@ -177,7 +177,7 @@ with demo:
                 chatbot.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
 
         text_input = gr.update(visible=False) if done else gr.update(visible=True)
-        return gr.update(visible=False), gr.update(visible=True), text_input, gr.update(visible=False), state, gr.update(value=past_conversation_string), toggle_example_submit, toggle_final_submit, toggle_final_submit_preview,
+        return gr.update(visible=False), gr.update(visible=True), text_input, gr.update(visible=False), state, gr.update(value=past_conversation_string), toggle_example_submit, toggle_final_submit, toggle_final_submit_preview, dummy
 
     # Input fields
     past_conversation = gr.Markdown()
@@ -201,14 +201,14 @@ with demo:
     select_response_button.click(
         _select_response,
         inputs=[select_response, state, dummy],
-        outputs=[select_response, example_submit, text_input, select_response_button, state, past_conversation, example_submit, final_submit, final_submit_preview],
+        outputs=[select_response, example_submit, text_input, select_response_button, state, past_conversation, example_submit, final_submit, final_submit_preview, dummy],
         _js=get_window_location_search_js,
     )
 
     submit_ex_button.click(
         _predict,
         inputs=[text_input, state],
-        outputs=[text_input, select_response_button, select_response, past_conversation, state, example_submit, final_submit, final_submit_preview, state_display, dummy],
+        outputs=[text_input, select_response_button, select_response, past_conversation, state, example_submit, final_submit, final_submit_preview, state_display],
         _js=get_window_location_search_js,
     )
 
