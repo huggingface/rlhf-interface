@@ -193,8 +193,8 @@ with demo:
 
     # Button event handlers
     get_window_location_search_js = """
-        function(text_input, label_input, state, dummy) {
-            return [text_input, label_input, state, window.location.search];
+        function(select_response, state, dummy) {
+            return [select_response, state, window.location.search];
         }
         """
 
@@ -209,7 +209,6 @@ with demo:
         _predict,
         inputs=[text_input, state],
         outputs=[text_input, select_response_button, select_response, past_conversation, state, example_submit, final_submit, final_submit_preview, state_display],
-        _js=get_window_location_search_js,
     )
 
     post_hit_js = """
