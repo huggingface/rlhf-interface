@@ -114,8 +114,7 @@ with demo:
         state_dict[f"response_{idx+1}"] = ""
     state = gr.JSON(state_dict, visible=False)
 
-    gr.Markdown("# RLHF Interface")
-    gr.Markdown("Choose the best model output")
+    gr.Markdown("# Talk to the assistant")
 
     state_display = gr.Markdown(f"Your messages: 0/{TOTAL_CNT}")
 
@@ -142,24 +141,8 @@ with demo:
         state["data"].append(metadata)
         state["past_user_inputs"].append(txt)
 
-        past_conversation_string = "<br />".join(
-            [
-                "<br />".join(["😃: " + user_input, "🤖: " + model_response])
-                for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])
-            ]
-        )
-        return (
-            gr.update(visible=False),
-            gr.update(visible=True),
-            gr.update(visible=True, choices=responses, interactive=True, value=responses[0]),
-            gr.update(value=past_conversation_string),
-            state,
-            gr.update(visible=False),
-            gr.update(visible=False),
-            gr.update(visible=False),
-            new_state_md,
-            dummy,
-        )
+        past_conversation_string = "<br />".join(["<br />".join(["Human 😃: " + user_input, "Assistant 🤖: " + model_response]) for user_input, model_response in zip(state["past_user_inputs"], state["generated_responses"] + [""])])
+        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=True, choices=responses, interactive=True, value=responses[0]), gr.update(value=past_conversation_string), state, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), new_state_md, dummy
 
     def _select_response(selected_response, state, dummy):
         done = state["cnt"] == TOTAL_CNT
@@ -189,7 +172,7 @@ with demo:
         )
         query = parse_qs(dummy[1:])
         if "assignmentId" in query and query["assignmentId"][0] != "ASSIGNMENT_ID_NOT_AVAILABLE":
-            # It seems that someone is using this app on MTurk. We need to
+            # It seems that someone is using this app on mturk. We need to
             # store the assignmentId in the state before submit_hit_button
             # is clicked. We can do this here in _predict. We need to save the
             # assignmentId so that the turker can get credit for their HIT.
@@ -211,22 +194,12 @@ with demo:
                 chatbot.memory = model_id2model[state["data"][-1]["response2model_id"][selected_response]].memory
 
         text_input = gr.update(visible=False) if done else gr.update(visible=True)
-        return (
-            gr.update(visible=False),
-            gr.update(visible=True),
-            text_input,
-            gr.update(visible=False),
-            state,
-            gr.update(value=past_conversation_string),
-            toggle_example_submit,
-            toggle_final_submit,
-            toggle_final_submit_preview,
-        )
+        return gr.update(visible=False), gr.update(visible=True), text_input, gr.update(visible=False), state, gr.update(value=past_conversation_string), toggle_example_submit, toggle_final_submit, toggle_final_submit_preview, dummy
 
     # Input fields
     past_conversation = gr.Markdown()
     text_input = gr.Textbox(placeholder="Enter a statement", show_label=False)
-    select_response = gr.Radio(choices=[None, None], visible=False, label="Choose the best response")
+    select_response = gr.Radio(choices=[None, None], visible=False, label="Choose the most helpful and honest response")
     select_response_button = gr.Button("Select Response", visible=False)
     with gr.Column() as example_submit:
         submit_ex_button = gr.Button("Submit")
@@ -239,49 +212,27 @@ with demo:
 
     # Button event handlers
     get_window_location_search_js = """
-        function(text_input, label_input, state, dummy) {
-            return [text_input, label_input, state, window.location.search];
+        function(select_response, state, dummy) {
+            return [select_response, state, window.location.search];
         }
         """
 
     select_response_button.click(
         _select_response,
         inputs=[select_response, state, dummy],
-        outputs=[
-            select_response,
-            example_submit,
-            text_input,
-            select_response_button,
-            state,
-            past_conversation,
-            example_submit,
-            final_submit,
-            final_submit_preview,
-        ],
+        outputs=[select_response, example_submit, text_input, select_response_button, state, past_conversation, example_submit, final_submit, final_submit_preview, dummy],
         _js=get_window_location_search_js,
     )
 
     submit_ex_button.click(
         _predict,
         inputs=[text_input, state],
-        outputs=[
-            text_input,
-            select_response_button,
-            select_response,
-            past_conversation,
-            state,
-            example_submit,
-            final_submit,
-            final_submit_preview,
-            state_display,
-            dummy,
-        ],
-        _js=get_window_location_search_js,
+        outputs=[text_input, select_response_button, select_response, past_conversation, state, example_submit, final_submit, final_submit_preview, state_display],
     )
 
     post_hit_js = """
         function(state) {
-            // If there is an assignmentId, then the submitter is on MTurk
+            // If there is an assignmentId, then the submitter is on mturk
             // and has accepted the HIT. So, we need to submit their HIT.
             const form = document.createElement('form');
             form.action = 'https://workersandbox.mturk.com/mturk/externalSubmit';
