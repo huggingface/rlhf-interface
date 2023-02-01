@@ -1,6 +1,3 @@
-# Basic example for running MTurk data collection against a Space
-# For more information see https://docs.aws.amazon.com/mturk/index.html
-
 import boto3
 from boto.mturk.question import ExternalQuestion
 
@@ -45,11 +42,11 @@ question = ExternalQuestion(f"https://hf.space/embed/{args.space_name}/+?__theme
 qualification_type_id = open("qualification_type_id.txt", "r").read() if path.exists("qualification_type_id.txt") else None
 if args.refresh_qualification_test or qualification_type_id is None:
     if qualification_type_id is not None:
-        client.delete_qualification_type(
-            QualificationTypeId='string'
+        mturk.delete_qualification_type(
+            QualificationTypeId=qualification_type_id
         )
     response = mturk.create_qualification_type(
-        Name='rlhf-qualification',
+        Name='rlhf--qualification',
         Keywords='RLHF qualification',
         Description='Qualification test for RLHF task.',
         QualificationTypeStatus='Active',
